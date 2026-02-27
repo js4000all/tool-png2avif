@@ -28,6 +28,7 @@ png2avif imagedir
 * dryrunモード対応（副作用のみ無効化）
 * verboseモードでファイル単位ログを表示
 * 単一PNGファイル指定も可能
+* Stable Diffusion WebUI の `parameters` を検出した場合、AVIF の Exif `User Comment` に自動引き継ぎ
 
 ---
 
@@ -156,6 +157,7 @@ removed: imagedir/sample.png
 * デフォルトではファイル単位ログは出力されません（`--verbose` 指定時のみ出力）。
 * `--dryrun` を使用すると、AVIF書き込みとPNG削除を行いません。
 * `--jobs` は 1 以上を指定でき、Converting フェーズは `ProcessPoolExecutor` で実行されます（Scanning は逐次）。
+* PNG の `tEXt` / `iTXt` / `zTXt` に `parameters` があれば、AVIF の Exif `User Comment` に格納されます（ASCIIは`ASCII\0\0\0`、非ASCIIは`UNICODE\0` + UTF-16LE）。
 * 画質を下げるとファイルサイズは小さくなりますが、画質も低下します。
 
 ---

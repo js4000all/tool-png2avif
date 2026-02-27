@@ -1,10 +1,16 @@
 import argparse
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
+import zlib
 
 from PIL import Image
 import pillow_avif  # noqa: F401  # Enables AVIF support in Pillow
 from tqdm import tqdm
+
+
+USER_COMMENT_TAG = 0x9286
+ASCII_PREFIX = b"ASCII\x00\x00\x00"
+UNICODE_PREFIX = b"UNICODE\x00"
 
 
 def iter_png_files(target: Path):
@@ -17,6 +23,90 @@ def iter_png_files(target: Path):
     yield from target.rglob("*.png")
 
 
+def _extract_sd_parameters(png_path: Path):
+    """
+    Extract Stable Diffusion WebUI `parameters` text from PNG chunks.
+    Supports tEXt, iTXt, and zTXt.
+    Returns None when not present or when parsing fails.
+    """
+    try:
+        with png_path.open("rb") as f:
+            if f.read(8) != b"\x89PNG\r\n\x1a\n":
+                return None
+
+            while True:
+                length_bytes = f.read(4)
+                if len(length_bytes) != 4:
+                    return None
+
+                length = int.from_bytes(length_bytes, "big")
+                chunk_type = f.read(4)
+                data = f.read(length)
+                f.read(4)  # CRC
+
+                if len(chunk_type) != 4 or len(data) != length:
+                    return None
+
+                if chunk_type == b"tEXt":
+                    sep = data.find(b"\x00")
+                    if sep > 0 and data[:sep] == b"parameters":
+                        return data[sep + 1 :].decode("latin-1")
+
+                elif chunk_type == b"zTXt":
+                    sep = data.find(b"\x00")
+                    if sep > 0 and data[:sep] == b"parameters" and sep + 2 <= len(data):
+                        if data[sep + 1] != 0:
+                            continue
+                        try:
+                            decompressed = zlib.decompress(data[sep + 2 :])
+                        except zlib.error:
+                            continue
+                        return decompressed.decode("latin-1")
+
+                elif chunk_type == b"iTXt":
+                    sep = data.find(b"\x00")
+                    if sep > 0 and data[:sep] == b"parameters":
+                        pos = sep + 1
+                        if pos + 2 > len(data):
+                            continue
+                        compression_flag = data[pos]
+                        compression_method = data[pos + 1]
+                        pos += 2
+
+                        lang_end = data.find(b"\x00", pos)
+                        if lang_end < 0:
+                            continue
+                        pos = lang_end + 1
+
+                        translated_end = data.find(b"\x00", pos)
+                        if translated_end < 0:
+                            continue
+                        pos = translated_end + 1
+
+                        text_bytes = data[pos:]
+                        if compression_flag == 1:
+                            if compression_method != 0:
+                                continue
+                            try:
+                                text_bytes = zlib.decompress(text_bytes)
+                            except zlib.error:
+                                continue
+                        return text_bytes.decode("utf-8")
+
+                if chunk_type == b"IEND":
+                    break
+    except Exception:
+        return None
+
+    return None
+
+
+def _to_user_comment_bytes(text: str) -> bytes:
+    if all(ord(ch) < 128 for ch in text):
+        return ASCII_PREFIX + text.encode("ascii")
+    return UNICODE_PREFIX + text.encode("utf-16le")
+
+
 def _worker_convert(png_path_str: str, quality: int, dryrun: bool):
     """
     Convert one PNG to AVIF in a worker process.
@@ -26,10 +116,17 @@ def _worker_convert(png_path_str: str, quality: int, dryrun: bool):
     avif_path = png_path.with_suffix(".avif")
 
     try:
+        parameters = _extract_sd_parameters(png_path)
+
         with Image.open(png_path) as img:
             # Keep alpha if present; Pillow+plugin handles RGBA -> AVIF.
             if not dryrun:
-                img.save(avif_path, format="AVIF", quality=quality)
+                save_kwargs = {"format": "AVIF", "quality": quality}
+                if parameters is not None:
+                    exif = Image.Exif()
+                    exif[USER_COMMENT_TAG] = _to_user_comment_bytes(parameters)
+                    save_kwargs["exif"] = exif.tobytes()
+                img.save(avif_path, **save_kwargs)
 
         if not dryrun:
             png_path.unlink()
