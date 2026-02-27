@@ -14,27 +14,27 @@ def iter_png_files(target: Path):
     yield from target.rglob("*.png")
 
 
-def convert_one(png_path: Path, quality: int, dryrun: bool) -> bool:
+def convert_one(png_path: Path, quality: int, dryrun: bool, verbose: bool) -> bool:
     """
     Convert one PNG to AVIF.
     Returns True if conversion succeeded (or would succeed in dryrun), else False.
     """
     avif_path = png_path.with_suffix(".avif")
 
-    if dryrun:
-        print(f"converted: {png_path} -> {avif_path}")
-        print(f"removed: {png_path}")
-        return True
-
     try:
         with Image.open(png_path) as img:
             # Keep alpha if present; Pillow+plugin handles RGBA -> AVIF.
-            img.save(avif_path, format="AVIF", quality=quality)
+            if not dryrun:
+                img.save(avif_path, format="AVIF", quality=quality)
 
-        print(f"converted: {png_path} -> {avif_path}")
+        if verbose:
+            print(f"converted: {png_path} -> {avif_path}")
 
-        png_path.unlink()
-        print(f"removed: {png_path}")
+        if not dryrun:
+            png_path.unlink()
+
+        if verbose:
+            print(f"removed: {png_path}")
         return True
 
     except Exception:
@@ -48,9 +48,14 @@ def parse_args() -> argparse.Namespace:
         description="Recursively convert PNG files to AVIF under a directory (or a single PNG file)."
     )
     p.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Enable per-file converted/removed logs.",
+    )
+    p.add_argument(
         "--dryrun",
         action="store_true",
-        help="Show what would be converted/removed without writing files.",
+        help="Disable AVIF write and PNG deletion while preserving normal flow.",
     )
     p.add_argument(
         "--quality",
@@ -80,7 +85,12 @@ def main() -> int:
     any_found = False
     for png_file in iter_png_files(target):
         any_found = True
-        convert_one(png_file, quality=quality, dryrun=args.dryrun)
+        convert_one(
+            png_file,
+            quality=quality,
+            dryrun=args.dryrun,
+            verbose=args.verbose,
+        )
 
     # If no PNGs were found, still treat as non-fatal but signal via exit code.
     return 0 if any_found else 1
@@ -88,4 +98,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
