@@ -29,13 +29,13 @@ def convert_one(png_path: Path, quality: int, dryrun: bool, verbose: bool) -> bo
                 img.save(avif_path, format="AVIF", quality=quality)
 
         if verbose:
-            print(f"converted: {png_path} -> {avif_path}")
+            tqdm.write(f"converted: {png_path} -> {avif_path}")
 
         if not dryrun:
             png_path.unlink()
 
         if verbose:
-            print(f"removed: {png_path}")
+            tqdm.write(f"removed: {png_path}")
         return True
 
     except Exception:
