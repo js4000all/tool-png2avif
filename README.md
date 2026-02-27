@@ -158,6 +158,7 @@ removed: imagedir/sample.png
 * `--dryrun` を使用すると、AVIF書き込みとPNG削除を行いません。
 * `--jobs` は 1 以上を指定でき、Converting フェーズは `ProcessPoolExecutor` で実行されます（Scanning は逐次）。
 * PNG の `tEXt` / `iTXt` / `zTXt` に `parameters` があれば、AVIF の Exif `User Comment` に格納されます（ASCIIは`ASCII\0\0\0`、非ASCIIは`UNICODE\0` + UTF-16LE）。
+* AVIF コンテナの `Handler Description` は `libavif` として埋め込まれ、`exiftool` で確認できます。
 * 画質を下げるとファイルサイズは小さくなりますが、画質も低下します。
 
 ---
