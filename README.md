@@ -10,7 +10,7 @@ PNG画像をAVIF形式へ一括変換するシンプルなCLIツールです。
 ## Quick Start
 
 ```bash
-git clone https://github.com/yourname/tool-png2avif.git
+git clone https://github.com/js4000all/tool-png2avif.git
 cd tool-png2avif
 pip install -r requirements.txt
 python png2avif.py imagedir
@@ -41,7 +41,7 @@ python png2avif.py imagedir
 ### 1. リポジトリを取得
 
 ```bash
-git clone https://github.com/yourname/tool-png2avif.git
+git clone https://github.com/js4000all/tool-png2avif.git
 cd tool-png2avif
 ```
 
