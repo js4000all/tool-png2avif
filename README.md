@@ -12,8 +12,8 @@ PNG画像をAVIF形式へ一括変換するシンプルなCLIツールです。
 ```bash
 git clone https://github.com/js4000all/tool-png2avif.git
 cd tool-png2avif
-pip install -r requirements.txt
-python png2avif.py imagedir
+pip install .
+png2avif imagedir
 ```
 
 これだけで `imagedir` 以下のPNGがAVIFに変換されます。
@@ -55,7 +55,7 @@ source venv/bin/activate  # macOS / Linux
 # または
 venv\Scripts\Activate.ps1  # Windows (PowerShell)
 
-pip install -r requirements.txt
+pip install .
 ```
 
 ---
@@ -63,7 +63,7 @@ pip install -r requirements.txt
 ### Option B: グローバル環境にインストール
 
 ```bash
-pip install -r requirements.txt
+pip install .
 ```
 
 ---
@@ -71,7 +71,7 @@ pip install -r requirements.txt
 ## Usage
 
 ```
-python png2avif.py [--dryrun] [--quality QUALITY] <target_path>
+png2avif [--dryrun] [--quality QUALITY] <target_path>
 ```
 
 ### Arguments
@@ -89,25 +89,25 @@ python png2avif.py [--dryrun] [--quality QUALITY] <target_path>
 ### 通常実行（デフォルト quality=80）
 
 ```
-python png2avif.py imagedir
+png2avif imagedir
 ```
 
 ### qualityを指定
 
 ```
-python png2avif.py --quality 70 imagedir
+png2avif --quality 70 imagedir
 ```
 
 ### dryrun
 
 ```
-python png2avif.py --dryrun imagedir
+png2avif --dryrun imagedir
 ```
 
 ### dryrun + quality指定
 
 ```
-python png2avif.py --dryrun --quality 70 imagedir
+png2avif --dryrun --quality 70 imagedir
 ```
 
 ---
