@@ -72,7 +72,7 @@ pip install .
 ## Usage
 
 ```
-png2avif [--verbose] [--dryrun] [--quality QUALITY] <target_path>
+png2avif [--verbose] [--dryrun] [--quality QUALITY] [--jobs JOBS] <target_path>
 ```
 
 ### Arguments
@@ -81,6 +81,7 @@ png2avif [--verbose] [--dryrun] [--quality QUALITY] <target_path>
 | ----------- | ------------------------ |
 | target_path | 変換対象ディレクトリまたはPNGファイル（必須） |
 | --quality   | AVIF品質（0–100, デフォルト: 80） |
+| --jobs      | 並列ワーカープロセス数（1以上, デフォルト: 1） |
 | --verbose   | `converted / removed` のファイル単位ログを出力 |
 | --dryrun    | AVIF書き込みとPNG削除を行わない（副作用なし） |
 
@@ -124,6 +125,18 @@ png2avif --dryrun --verbose imagedir
 png2avif --dryrun --quality 70 imagedir
 ```
 
+### 4並列で実行
+
+```
+png2avif --jobs 4 imagedir
+```
+
+### 4並列 + verbose
+
+```
+png2avif --jobs 4 --verbose imagedir
+```
+
 ---
 
 ## Output Example (`--verbose` 指定時のみ)
@@ -142,6 +155,7 @@ removed: imagedir/sample.png
 * 変換成功時のみ元PNGを削除します。
 * デフォルトではファイル単位ログは出力されません（`--verbose` 指定時のみ出力）。
 * `--dryrun` を使用すると、AVIF書き込みとPNG削除を行いません。
+* `--jobs` は 1 以上を指定でき、Converting フェーズは `ProcessPoolExecutor` で実行されます（Scanning は逐次）。
 * 画質を下げるとファイルサイズは小さくなりますが、画質も低下します。
 
 ---

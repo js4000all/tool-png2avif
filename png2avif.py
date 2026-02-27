@@ -1,5 +1,7 @@
 import argparse
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
+
 from PIL import Image
 import pillow_avif  # noqa: F401  # Enables AVIF support in Pillow
 from tqdm import tqdm
@@ -15,11 +17,12 @@ def iter_png_files(target: Path):
     yield from target.rglob("*.png")
 
 
-def convert_one(png_path: Path, quality: int, dryrun: bool, verbose: bool) -> bool:
+def _worker_convert(png_path_str: str, quality: int, dryrun: bool):
     """
-    Convert one PNG to AVIF.
-    Returns True if conversion succeeded (or would succeed in dryrun), else False.
+    Convert one PNG to AVIF in a worker process.
+    Returns (success, png_path_str, avif_path_str).
     """
+    png_path = Path(png_path_str)
     avif_path = png_path.with_suffix(".avif")
 
     try:
@@ -28,20 +31,15 @@ def convert_one(png_path: Path, quality: int, dryrun: bool, verbose: bool) -> bo
             if not dryrun:
                 img.save(avif_path, format="AVIF", quality=quality)
 
-        if verbose:
-            tqdm.write(f"converted: {png_path} -> {avif_path}")
-
         if not dryrun:
             png_path.unlink()
 
-        if verbose:
-            tqdm.write(f"removed: {png_path}")
-        return True
+        return (True, png_path_str, str(avif_path))
 
     except Exception:
         # Requirement said: log only (converted, removed)
         # So we stay silent on failures.
-        return False
+        return (False, png_path_str, str(avif_path))
 
 
 def parse_args() -> argparse.Namespace:
@@ -65,6 +63,12 @@ def parse_args() -> argparse.Namespace:
         help="AVIF quality (0-100). Default: 80",
     )
     p.add_argument(
+        "--jobs",
+        type=int,
+        default=1,
+        help="Number of parallel worker processes. Default: 1",
+    )
+    p.add_argument(
         "target_path",
         help="Target directory or PNG file path.",
     )
@@ -83,6 +87,10 @@ def main() -> int:
     if quality < 0 or quality > 100:
         return 2
 
+    jobs = args.jobs
+    if jobs < 1:
+        return 2
+
     png_files = list(
         tqdm(
             iter_png_files(target),
@@ -92,18 +100,20 @@ def main() -> int:
         )
     )
 
-    for png_file in tqdm(
-        png_files,
-        total=len(png_files),
-        desc="Converting",
-        unit="file",
-    ):
-        convert_one(
-            png_file,
-            quality=quality,
-            dryrun=args.dryrun,
-            verbose=args.verbose,
-        )
+    with ProcessPoolExecutor(max_workers=jobs) as executor:
+        futures = [
+            executor.submit(_worker_convert, str(png_file), quality, args.dryrun)
+            for png_file in png_files
+        ]
+
+        with tqdm(total=len(futures), desc="Converting", unit="file") as pbar:
+            for future in as_completed(futures):
+                converted, png_path_str, avif_path_str = future.result()
+                pbar.update(1)
+
+                if converted and args.verbose:
+                    tqdm.write(f"converted: {png_path_str} -> {avif_path_str}")
+                    tqdm.write(f"removed: {png_path_str}")
 
     any_found = bool(png_files)
 
