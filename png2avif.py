@@ -2,6 +2,7 @@ import argparse
 from pathlib import Path
 from PIL import Image
 import pillow_avif  # noqa: F401  # Enables AVIF support in Pillow
+from tqdm import tqdm
 
 
 def iter_png_files(target: Path):
@@ -82,15 +83,29 @@ def main() -> int:
     if quality < 0 or quality > 100:
         return 2
 
-    any_found = False
-    for png_file in iter_png_files(target):
-        any_found = True
+    png_files = list(
+        tqdm(
+            iter_png_files(target),
+            total=None,
+            desc="Scanning",
+            unit="file",
+        )
+    )
+
+    for png_file in tqdm(
+        png_files,
+        total=len(png_files),
+        desc="Converting",
+        unit="file",
+    ):
         convert_one(
             png_file,
             quality=quality,
             dryrun=args.dryrun,
             verbose=args.verbose,
         )
+
+    any_found = bool(png_files)
 
     # If no PNGs were found, still treat as non-fatal but signal via exit code.
     return 0 if any_found else 1
