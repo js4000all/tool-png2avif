@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
 authors = [
-  { name = "tool-png2avif contributors" }
+  { name = "js4000all", email = "js4000all@gmail.com" }
 ]
 dependencies = [
   "Pillow>=10.0.0",
