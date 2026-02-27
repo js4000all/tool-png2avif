@@ -10,7 +10,6 @@ from png2avif import (
     UNICODE_PREFIX,
     USER_COMMENT_TAG,
     _extract_sd_parameters,
-    _inject_handler_description,
     _to_user_comment_bytes,
     _worker_convert,
 )
@@ -78,25 +77,6 @@ class TestParametersMetadata(unittest.TestCase):
                     ASCII_PREFIX + prompt.encode("ascii"),
                 )
 
-    def test_inject_handler_description_adds_libavif_string_and_keeps_image_readable(self):
-        with tempfile.TemporaryDirectory() as td:
-            base = Path(td)
-            png = base / "plain.png"
-            Image.new("RGB", (4, 4), (10, 20, 30)).save(png)
-
-            success, _, avif_path_str = _worker_convert(str(png), 80, False)
-            self.assertTrue(success)
-            avif_path = Path(avif_path_str)
-
-            data = avif_path.read_bytes()
-            self.assertIn(b"libavif\x00", data)
-
-            with Image.open(avif_path) as converted:
-                self.assertEqual(converted.size, (4, 4))
-
-            original = data
-            _inject_handler_description(avif_path)
-            self.assertEqual(avif_path.read_bytes(), original)
 
 
 if __name__ == "__main__":
