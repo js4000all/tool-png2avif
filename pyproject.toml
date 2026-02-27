@@ -1,0 +1,26 @@
+[build-system]
+requires = ["hatchling>=1.25.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "png2avif"
+version = "0.1.0"
+description = "CLI tool to recursively convert PNG files to AVIF"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [
+  { name = "js4000all", email = "js4000all@gmail.com" }
+]
+dependencies = [
+  "Pillow>=10.0.0",
+  "pillow-avif-plugin>=1.4.0",
+]
+
+[project.scripts]
+png2avif = "png2avif:main"
+
+[tool.hatch.build.targets.wheel]
+include = [
+  "png2avif.py",
+]
