@@ -2,11 +2,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import piexif
 from PIL import Image
 from PIL.PngImagePlugin import PngInfo
 
 from png2avif import (
-    ASCII_PREFIX,
     UNICODE_PREFIX,
     USER_COMMENT_TAG,
     _extract_sd_parameters,
@@ -39,17 +39,17 @@ class TestParametersMetadata(unittest.TestCase):
                 self._make_png(png, chunk_type, expected)
                 self.assertEqual(_extract_sd_parameters(png), expected)
 
-    def test_user_comment_encoding_ascii_and_unicode(self):
+    def test_user_comment_encoding_uses_unicode_prefix(self):
         ascii_value = "prompt: a cat"
         unicode_value = "プロンプト: 猫"
 
         self.assertEqual(
             _to_user_comment_bytes(ascii_value),
-            ASCII_PREFIX + ascii_value.encode("ascii"),
+            UNICODE_PREFIX + ascii_value.encode("utf-16be"),
         )
         self.assertEqual(
             _to_user_comment_bytes(unicode_value),
-            UNICODE_PREFIX + unicode_value.encode("utf-16le"),
+            UNICODE_PREFIX + unicode_value.encode("utf-16be"),
         )
 
     def test_worker_writes_user_comment_to_avif_and_keeps_dryrun_side_effect_free(self):
@@ -71,10 +71,12 @@ class TestParametersMetadata(unittest.TestCase):
             self.assertTrue(avif_path.exists())
 
             with Image.open(avif_path) as converted:
-                exif = converted.getexif()
+                exif_bytes = converted.info.get("exif")
+                self.assertIsNotNone(exif_bytes)
+                exif = piexif.load(exif_bytes)
                 self.assertEqual(
-                    exif.get(USER_COMMENT_TAG),
-                    ASCII_PREFIX + prompt.encode("ascii"),
+                    exif["Exif"].get(USER_COMMENT_TAG),
+                    UNICODE_PREFIX + prompt.encode("utf-16be"),
                 )
 
 

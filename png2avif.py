@@ -5,11 +5,12 @@ import zlib
 
 from PIL import Image
 import pillow_avif  # noqa: F401  # Enables AVIF support in Pillow
+import piexif
+import piexif.helper
 from tqdm import tqdm
 
 
 USER_COMMENT_TAG = 0x9286
-ASCII_PREFIX = b"ASCII\x00\x00\x00"
 UNICODE_PREFIX = b"UNICODE\x00"
 
 
@@ -102,9 +103,7 @@ def _extract_sd_parameters(png_path: Path):
 
 
 def _to_user_comment_bytes(text: str) -> bytes:
-    if all(ord(ch) < 128 for ch in text):
-        return ASCII_PREFIX + text.encode("ascii")
-    return UNICODE_PREFIX + text.encode("utf-16le")
+    return piexif.helper.UserComment.dump(text or "", encoding="unicode")
 
 
 def _worker_convert(png_path_str: str, quality: int, dryrun: bool):
@@ -123,9 +122,12 @@ def _worker_convert(png_path_str: str, quality: int, dryrun: bool):
             if not dryrun:
                 save_kwargs = {"format": "AVIF", "quality": quality}
                 if parameters is not None:
-                    exif = Image.Exif()
-                    exif[USER_COMMENT_TAG] = _to_user_comment_bytes(parameters)
-                    save_kwargs["exif"] = exif.tobytes()
+                    exif_dict = {
+                        "Exif": {
+                            USER_COMMENT_TAG: _to_user_comment_bytes(parameters),
+                        },
+                    }
+                    save_kwargs["exif"] = piexif.dump(exif_dict)
                 img.save(avif_path, **save_kwargs)
 
         if not dryrun:
