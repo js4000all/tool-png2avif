@@ -1,5 +1,6 @@
 import argparse
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor
+from itertools import repeat
 from pathlib import Path
 import zlib
 
@@ -141,6 +142,14 @@ def _worker_convert(png_path_str: str, quality: int, dryrun: bool):
         return (False, png_path_str, str(avif_path))
 
 
+def _worker_chunk(png_path_strs: list[str], quality: int, dryrun: bool):
+    """Convert one chunk of PNG files in a worker process."""
+    return [
+        _worker_convert(png_path_str, quality, dryrun)
+        for png_path_str in png_path_strs
+    ]
+
+
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(
         description="Recursively convert PNG files to AVIF under a directory (or a single PNG file)."
@@ -168,6 +177,12 @@ def parse_args() -> argparse.Namespace:
         help="Number of parallel worker processes. Default: 1",
     )
     p.add_argument(
+        "--chunksize",
+        type=int,
+        default=1,
+        help="Chunk size passed to executor.map while distributing work. Default: 1",
+    )
+    p.add_argument(
         "target_path",
         help="Target directory or PNG file path.",
     )
@@ -190,6 +205,10 @@ def main() -> int:
     if jobs < 1:
         return 2
 
+    chunksize = args.chunksize
+    if chunksize < 1:
+        return 2
+
     png_files = list(
         tqdm(
             iter_png_files(target),
@@ -199,20 +218,28 @@ def main() -> int:
         )
     )
 
+    png_path_strs = [str(png_file) for png_file in png_files]
+    file_chunks = [
+        png_path_strs[i : i + chunksize] for i in range(0, len(png_path_strs), chunksize)
+    ]
+
     with ProcessPoolExecutor(max_workers=jobs) as executor:
-        futures = [
-            executor.submit(_worker_convert, str(png_file), quality, args.dryrun)
-            for png_file in png_files
-        ]
+        chunk_results = executor.map(
+            _worker_chunk,
+            file_chunks,
+            repeat(quality),
+            repeat(args.dryrun),
+            chunksize=chunksize,
+        )
 
-        with tqdm(total=len(futures), desc="Converting", unit="file") as pbar:
-            for future in as_completed(futures):
-                converted, png_path_str, avif_path_str = future.result()
-                pbar.update(1)
+        with tqdm(total=len(png_path_strs), desc="Converting", unit="file") as pbar:
+            for chunk in chunk_results:
+                for converted, png_path_str, avif_path_str in chunk:
+                    pbar.update(1)
 
-                if converted and args.verbose:
-                    tqdm.write(f"converted: {png_path_str} -> {avif_path_str}")
-                    tqdm.write(f"removed: {png_path_str}")
+                    if converted and args.verbose:
+                        tqdm.write(f"converted: {png_path_str} -> {avif_path_str}")
+                        tqdm.write(f"removed: {png_path_str}")
 
     any_found = bool(png_files)
 

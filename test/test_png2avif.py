@@ -11,6 +11,7 @@ from png2avif import (
     USER_COMMENT_TAG,
     _extract_sd_parameters,
     _to_user_comment_bytes,
+    _worker_chunk,
     _worker_convert,
 )
 
@@ -78,6 +79,22 @@ class TestParametersMetadata(unittest.TestCase):
                     exif["Exif"].get(USER_COMMENT_TAG),
                     UNICODE_PREFIX + prompt.encode("utf-16be"),
                 )
+
+    def test_worker_chunk_processes_multiple_files(self):
+        with tempfile.TemporaryDirectory() as td:
+            base = Path(td)
+            files = []
+            for idx in range(3):
+                png = base / f"input-{idx}.png"
+                self._make_png(png, "tEXt", f"prompt-{idx}")
+                files.append(str(png))
+
+            results = _worker_chunk(files, 80, False)
+            self.assertEqual(len(results), 3)
+            self.assertTrue(all(result[0] for result in results))
+            for _, png_path_str, avif_path_str in results:
+                self.assertFalse(Path(png_path_str).exists())
+                self.assertTrue(Path(avif_path_str).exists())
 
 
 
