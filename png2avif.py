@@ -1,6 +1,5 @@
 import argparse
-from concurrent.futures import ProcessPoolExecutor
-from itertools import repeat
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 import zlib
 
@@ -180,7 +179,7 @@ def parse_args() -> argparse.Namespace:
         "--chunksize",
         type=int,
         default=1,
-        help="Chunk size passed to executor.map while distributing work. Default: 1",
+        help="Number of files per worker task. Default: 1",
     )
     p.add_argument(
         "target_path",
@@ -224,16 +223,14 @@ def main() -> int:
     ]
 
     with ProcessPoolExecutor(max_workers=jobs) as executor:
-        chunk_results = executor.map(
-            _worker_chunk,
-            file_chunks,
-            repeat(quality),
-            repeat(args.dryrun),
-            chunksize=chunksize,
-        )
+        futures = [
+            executor.submit(_worker_chunk, file_chunk, quality, args.dryrun)
+            for file_chunk in file_chunks
+        ]
 
         with tqdm(total=len(png_path_strs), desc="Converting", unit="file") as pbar:
-            for chunk in chunk_results:
+            for future in as_completed(futures):
+                chunk = future.result()
                 for converted, png_path_str, avif_path_str in chunk:
                     pbar.update(1)
 
